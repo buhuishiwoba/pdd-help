@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>PDD互助站</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#f5f5f5;
+    text-align:center;
+    padding:30px;
+}
+
+.box{
+    background:#fff;
+    padding:20px;
+    width:360px;
+    margin:auto;
+    border-radius:12px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+
+input{
+    width:90%;
+    padding:10px;
+    margin-top:10px;
+    border:1px solid #ddd;
+    border-radius:6px;
+}
+
+button{
+    margin-top:10px;
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#3b82f6;
+    color:white;
+}
+
+.item{
+    display:flex;
+    justify-content:space-between;
+    margin-top:10px;
+    padding:10px;
+    background:#f9f9f9;
+    border-radius:8px;
+}
+
+.used{
+    color:gray;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>PDD互助站</h2>
+
+    <input id="input" placeholder="输入邀请码">
+    <button onclick="add()">提交</button>
+
+    <div id="list"></div>
+</div>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<script>
+
+// ===================== Supabase配置 =====================
+const supabaseClient = supabase.createClient(
+  'https://bzitexkefglmqeogmwnj.supabase.co',
+  'sb_publishable_J5NsDd5nnwSjUWTfvbeQzQ__qzZs-f6'
+);
+
+// ===================== 加载列表 =====================
+async function loadList(){
+    const { data, error } = await supabaseClient
+        .from('codes')
+        .select('*')
+        .order('id', { ascending: false });
+
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    if(error){
+        console.log(error);
+        return;
+    }
+
+    data.forEach(item=>{
+        const div = document.createElement("div");
+        div.className = "item";
+
+        div.innerHTML = `
+            <span>${item.number}</span>
+            <div>
+                ${item.used
+                    ? '<span class="used">已使用</span>'
+                    : `<button onclick="jump(${item.id})">跳转</button>`
+                }
+            </div>
+        `;
+
+        list.appendChild(div);
+    });
+}
+
+// ===================== 提交邀请码 =====================
+async function add(){
+    const val = document.getElementById("input").value.trim();
+    if(!val) return;
+
+    // 防重复提交
+    const { data: check } = await supabaseClient
+        .from('codes')
+        .select('*')
+        .eq('number', val);
+
+    if(check.length > 0){
+        alert("这个码已经提交过了");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from('codes')
+        .insert([{ number: val, used: false }]);
+
+    if(error){
+        alert("提交失败");
+        console.log(error);
+        return;
+    }
+
+    document.getElementById("input").value = "";
+    loadList();
+}
+
+// ===================== 跳转 + 标记使用 =====================
+async function jump(id){
+
+    const { data } = await supabaseClient
+        .from('codes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if(!data) return;
+
+    await supabaseClient
+        .from('codes')
+        .update({ used: true })
+        .eq('id', id);
+
+    alert("正在跳转拼多多，并已复制邀请码");
+
+    navigator.clipboard.writeText(data.number);
+
+    window.location.href =
+        "pinduoduo://com.xunmeng.pinduoduo/search_result.html?search_key="
+        + data.number;
+
+    loadList();
+}
+
+// 初始化
+loadList();
+
+</script>
+
+</body>
+</html>
